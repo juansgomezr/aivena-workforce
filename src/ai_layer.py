@@ -52,6 +52,7 @@ def _format_results_for_prompt(result: Dict, num_stores: int = 1) -> str:
     bc = result["baseline"]["cost_breakdown"]
     oc = result["optimized"]["cost_breakdown"]
     d = result["delta"]
+    n_total = len(result["baseline"]["hours_summary"])
 
     return f"""DATOS DE LA TIENDA Y RESULTADOS DEL ANÁLISIS:
 
@@ -59,7 +60,7 @@ ESCENARIO ACTUAL (baseline con Excel):
 - Costo laboral total/semana: $ {bc['cost_total_mxn']:,.0f} MXN
   - Horas regulares: $ {bc['cost_regular_mxn']:,.0f} MXN ({bc['total_regular_hours']:.0f} h)
   - Horas extra: $ {bc['cost_overtime_mxn']:,.0f} MXN ({bc['total_overtime_hours']:.0f} h)
-- Empleados >40h (ilegal post-2027): {bc['employees_over_40h']} de 80
+- Empleados >40h (ilegal post-2027): {bc['employees_over_40h']} de {n_total}
 - Sobrestaffing en valles: {bc['total_overstaff_personhours']:.0f} personas-hora
 - Sub-dotación en picos (gap): {bc['total_gap_personhours']:.0f} personas-hora
 
@@ -132,6 +133,8 @@ def _fallback_brief(result: Dict, num_stores: int, store_name: str) -> str:
     bc = result["baseline"]["cost_breakdown"]
     oc = result["optimized"]["cost_breakdown"]
     d = result["delta"]
+    n_total = len(result["baseline"]["hours_summary"])
+    pct_over = bc['employees_over_40h'] / n_total * 100 if n_total > 0 else 0
     return f"""### Diagnóstico
 {store_name} opera hoy con un modelo de programación basado en promedios y staffing constante por turno. Esto genera dos patologías simultáneas: sobrestaffing en valles ({bc['total_overstaff_personhours']:.0f} personas-hora pagadas a personal ocioso) y sub-dotación en picos.
 
@@ -139,7 +142,7 @@ def _fallback_brief(result: Dict, num_stores: int, store_name: str) -> str:
 El costo laboral actual es de $ {bc['cost_total_mxn']:,.0f} MXN/semana. Aivena reduce esto a $ {oc['cost_total_mxn']:,.0f} MXN/semana — un ahorro de $ {d['cost_savings_weekly_mxn']:,.0f} MXN ({d['cost_savings_pct']*100:.1f}%) sin tocar plantilla. Anualizado para {num_stores} tienda(s): $ {d['cost_savings_annual_chain']:,.0f} MXN/año.
 
 ### Riesgo regulatorio
-{bc['employees_over_40h']} de 80 empleados ({bc['employees_over_40h']/80*100:.0f}%) trabajan hoy más de 40 horas semanales. Bajo la reforma laboral 2027, esto es una infracción directa del Artículo 61 de la LFT. La optimización los regulariza a todos sin afectar cobertura.
+{bc['employees_over_40h']} de {n_total} empleados ({pct_over:.0f}%) trabajan hoy más de 40 horas semanales. Bajo la reforma laboral 2027, esto es una infracción directa del Artículo 61 de la LFT. La optimización los regulariza a todos sin afectar cobertura.
 
 ### Próximo paso
 Pilotear Aivena en {store_name} durante 4 semanas. Comparativo A/B contra la programación actual, con reporte semanal de costo evitado y cumplimiento. Sin compromiso anual, validación basada en tu propio P&L."""
