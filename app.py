@@ -414,10 +414,19 @@ else:
 
         with col_r:
             st.markdown("##### Checks de cumplimiento")
-            st.success("✓ Ahorro ≥ 8% (mandato del proyecto)") if d["meets_8pct_threshold"] else st.error("✗ Ahorro < 8%")
-            st.success("✓ Ningún empleado >40h (cumplimiento legal 2027)") if d["meets_legal_compliance"] else st.error("✗ Hay empleados >40h")
-            st.success("✓ 100% cobertura demanda (sin sub-dotación)") if d["meets_no_undercoverage"] else st.error("✗ Sub-dotación en picos")
-
+            if d["meets_8pct_threshold"]:
+                st.success("✓ Ahorro ≥ 8% (mandato del proyecto)")
+            else:
+                st.error("✗ Ahorro < 8%")
+            if d["meets_legal_compliance"]:
+                st.success("✓ Ningún empleado >40h (cumplimiento legal 2027)")
+            else:
+                st.error("✗ Hay empleados >40h")
+            if d["meets_no_undercoverage"]:
+                st.success("✓ 100% cobertura demanda (sin sub-dotación)")
+            else:
+                st.error("✗ Sub-dotación en picos")
+                
             st.markdown("##### Comparación lado a lado")
             comp_df = pd.DataFrame([
                 {"Métrica": "Costo total/sem (MXN)", "Baseline": f"${bc['cost_total_mxn']:,.0f}", "Optimizado": f"${oc['cost_total_mxn']:,.0f}"},
