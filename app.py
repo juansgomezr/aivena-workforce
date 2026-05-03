@@ -74,57 +74,59 @@ def validate_employees_csv(df: pd.DataFrame) -> tuple[bool, str]:
 # ==========================================================================
 
 def chart_demand_vs_staffing(result: dict) -> go.Figure:
-    """Demanda vs staffing — un panel por día (grid 2x4)."""
+    """Curva de demanda vs staffing baseline vs optimizado por hora-día."""
     bcov = result["baseline"]["coverage_df"]
     ocov = result["optimized"]["coverage_df"]
 
-    fig = make_subplots(
-        rows=2, cols=4,
-        subplot_titles=DAYS,
-        shared_yaxes=True,
-        horizontal_spacing=0.04,
-        vertical_spacing=0.22,
-    )
-
-    for i, day in enumerate(DAYS):
-        row = 1 if i < 4 else 2
-        col = (i % 4) + 1
+    # Construir labels concatenando día + hora
+    rows = []
+    for day in DAYS:
         bd = bcov[bcov["dia"] == day].sort_values("hora")
         od = ocov[ocov["dia"] == day].sort_values("hora")
-        x_labels = [f"{h}h" for h in bd["hora"]]
+        for _, r in bd.iterrows():
+            rows.append({
+                "label": f"{day[:3]} {r['hora']}h",
+                "dia": day,
+                "hora": r["hora"],
+                "demanda": r["requerido"],
+                "baseline": r["asignado"],
+            })
+        for _, r in od.iterrows():
+            for row in rows:
+                if row["dia"] == day and row["hora"] == r["hora"]:
+                    row["optimizado"] = r["asignado"]
+                    break
+    df = pd.DataFrame(rows)
 
-        fig.add_trace(go.Bar(
-            x=x_labels, y=bd["asignado"], name="Baseline (Excel)",
-            marker_color="#F0997B", opacity=0.85, showlegend=(i == 0),
-        ), row=row, col=col)
-        fig.add_trace(go.Bar(
-            x=x_labels, y=od["asignado"], name="Optimizado (Aivena)",
-            marker_color="#5DCAA5", opacity=0.9, showlegend=(i == 0),
-        ), row=row, col=col)
-        fig.add_trace(go.Scatter(
-            x=x_labels, y=bd["requerido"], name="Demanda real",
-            mode="lines+markers",
-            line=dict(color="#FAFAFA", width=2),
-            marker=dict(size=4, color="#FAFAFA"),
-            showlegend=(i == 0),
-        ), row=row, col=col)
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=df["label"], y=df["baseline"],
+        name="Baseline (Excel)",
+        marker_color="#F0997B",
+        opacity=0.85,
+    ))
+    fig.add_trace(go.Bar(
+        x=df["label"], y=df["optimizado"],
+        name="Optimizado (Aivena)",
+        marker_color="#5DCAA5",
+        opacity=0.85,
+    ))
+    fig.add_trace(go.Scatter(
+        x=df["label"], y=df["demanda"],
+        name="Demanda real",
+        mode="lines",
+        line=dict(color="#2C2C2A", width=2),
+    ))
 
     fig.update_layout(
-        height=480, barmode="group",
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#E5E5E5", size=11),
-        legend=dict(
-            orientation="h", y=1.12, x=0.5, xanchor="center",
-            bgcolor="rgba(0,0,0,0)",
-        ),
-        margin=dict(l=10, r=10, t=70, b=10),
-    )
-    fig.update_xaxes(showgrid=False, tickfont=dict(size=9))
-    fig.update_yaxes(
-        showgrid=True,
-        gridcolor="rgba(255,255,255,0.08)",
-        zerolinecolor="rgba(255,255,255,0.08)",
+        title="Demanda vs staffing por hora — semana completa",
+        barmode="group",
+        height=400,
+        xaxis=dict(title="", tickangle=-60, tickfont=dict(size=9)),
+        yaxis=dict(title="Personas"),
+        legend=dict(orientation="h", y=1.05, x=0),
+        margin=dict(l=10, r=10, t=60, b=80),
+        plot_bgcolor="white",
     )
     return fig
 
@@ -163,12 +165,12 @@ def chart_hours_distribution(result: dict) -> go.Figure:
         name=f"Optimizado (avg {oh.mean():.1f}h)",
         marker_color="#5DCAA5",
     ))
+    # Línea del tope legal entre 35-40h y 40-45h
     fig.add_vline(
-        x=3.5,
-        line=dict(color="#E24B4A", width=1.5, dash="dash"),
+        x=3.5, line=dict(color="#A32D2D", width=1.5, dash="dash"),
         annotation_text="Tope legal 2027",
-        annotation_position="top",
-        annotation_font_color="#E24B4A",
+        annotation_position="top right",
+        annotation_font_color="#A32D2D",
     )
     fig.update_layout(
         title="Distribución de horas semanales por empleado",
@@ -176,20 +178,9 @@ def chart_hours_distribution(result: dict) -> go.Figure:
         height=380,
         xaxis_title="Horas trabajadas/semana",
         yaxis_title="Empleados",
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#E5E5E5", size=12),
-        legend=dict(
-            orientation="h", y=1.1, x=0,
-            bgcolor="rgba(0,0,0,0)",
-        ),
-        margin=dict(l=10, r=10, t=70, b=40),
-    )
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(
-        showgrid=True,
-        gridcolor="rgba(255,255,255,0.08)",
-        zerolinecolor="rgba(255,255,255,0.08)",
+        legend=dict(orientation="h", y=1.05, x=0),
+        margin=dict(l=10, r=10, t=60, b=40),
+        plot_bgcolor="white",
     )
     return fig
 
@@ -202,9 +193,11 @@ def chart_schedule_heatmap(result: dict, max_employees: int = 30) -> go.Figure:
     pivot = sched.pivot_table(
         index="emp_id", columns=["dia", "hora"], values="working", fill_value=0
     )
+    # Reordenar columnas por día
     day_order = {d: i for i, d in enumerate(DAYS)}
     cols_sorted = sorted(pivot.columns, key=lambda c: (day_order.get(c[0], 99), c[1]))
     pivot = pivot[cols_sorted]
+    # Limitar a primeros N empleados para legibilidad
     pivot = pivot.iloc[:max_employees]
 
     col_labels = [f"{d[:3]} {h}h" for d, h in pivot.columns]
@@ -213,16 +206,13 @@ def chart_schedule_heatmap(result: dict, max_employees: int = 30) -> go.Figure:
         z=pivot.values,
         x=col_labels,
         y=pivot.index.tolist(),
-        colorscale=[[0, "rgba(255,255,255,0.04)"], [1, "#5DCAA5"]],
+        colorscale=[[0, "#F1EFE8"], [1, "#0F6E56"]],
         showscale=False,
         hovertemplate="Empleado: %{y}<br>Slot: %{x}<br>Trabajando: %{z}<extra></extra>",
     ))
     fig.update_layout(
         title=f"Schedule semanal optimizado (primeros {max_employees} empleados)",
         height=520,
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#E5E5E5", size=11),
         xaxis=dict(tickangle=-60, tickfont=dict(size=8)),
         yaxis=dict(autorange="reversed", tickfont=dict(size=10)),
         margin=dict(l=10, r=10, t=60, b=80),
@@ -373,6 +363,9 @@ else:
     oc = result["optimized"]["cost_breakdown"]
     d = result["delta"]
 
+    # Total de empleados (para KPIs dinámicos que se adaptan a la tienda subida)
+    total_emp = len(result["baseline"]["hours_summary"])
+
     # KPIs principales
     st.markdown("#### Resultados — " + st.session_state.store_name)
     col1, col2, col3, col4 = st.columns(4)
@@ -390,7 +383,7 @@ else:
     with col3:
         st.metric(
             "Empleados regularizados (>40h → ≤40h)",
-            f"{d['employees_brought_to_legal']} de 80",
+            f"{d['employees_brought_to_legal']} de {total_emp}",
             delta=f"De {bc['employees_over_40h']} a {oc['employees_over_40h']}",
             delta_color="inverse",
         )
@@ -424,19 +417,10 @@ else:
 
         with col_r:
             st.markdown("##### Checks de cumplimiento")
-            if d["meets_8pct_threshold"]:
-                st.success("✓ Ahorro ≥ 8% (mandato del proyecto)")
-            else:
-                st.error("✗ Ahorro < 8%")
-            if d["meets_legal_compliance"]:
-                st.success("✓ Ningún empleado >40h (cumplimiento legal 2027)")
-            else:
-                st.error("✗ Hay empleados >40h")
-            if d["meets_no_undercoverage"]:
-                st.success("✓ 100% cobertura demanda (sin sub-dotación)")
-            else:
-                st.error("✗ Sub-dotación en picos")
-                
+            st.success("✓ Ahorro ≥ 8% (mandato del proyecto)") if d["meets_8pct_threshold"] else st.error("✗ Ahorro < 8%")
+            st.success("✓ Ningún empleado >40h (cumplimiento legal 2027)") if d["meets_legal_compliance"] else st.error("✗ Hay empleados >40h")
+            st.success("✓ 100% cobertura demanda (sin sub-dotación)") if d["meets_no_undercoverage"] else st.error("✗ Sub-dotación en picos")
+
             st.markdown("##### Comparación lado a lado")
             comp_df = pd.DataFrame([
                 {"Métrica": "Costo total/sem (MXN)", "Baseline": f"${bc['cost_total_mxn']:,.0f}", "Optimizado": f"${oc['cost_total_mxn']:,.0f}"},
@@ -453,7 +437,7 @@ else:
         st.markdown(
             "Estas dos gráficas son la base de la conversación con un CFO. "
             "La primera muestra **dónde** se pierde dinero (sobrestaffing en valles, gap en picos). "
-            "La segunda muestra **a quiénes** afecta el problema legal: 68 de 80 empleados violan el tope 40h post-2027."
+            f"La segunda muestra **a quiénes** afecta el problema legal: {bc['employees_over_40h']} de {total_emp} empleados violan el tope 40h post-2027."
         )
         st.plotly_chart(chart_demand_vs_staffing(result), use_container_width=True)
         st.plotly_chart(chart_hours_distribution(result), use_container_width=True)
