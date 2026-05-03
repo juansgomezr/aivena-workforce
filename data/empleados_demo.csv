@@ -1,0 +1,81 @@
+id,name,role,hourly_rate
+E001,Luis Luna,Cajero,50
+E002,Andrés Vázquez,Cajero,50
+E003,Camila Delgado,Cajero,50
+E004,Luis Salazar,Cajero,50
+E005,Sofía Rodríguez,Cajero,50
+E006,Daniela Padilla,Cajero,50
+E007,Lucía Contreras,Cajero,50
+E008,Lucía Luna,Cajero,50
+E009,Daniela González,Cajero,50
+E010,Paola Vázquez,Cajero,50
+E011,Daniela Ruiz,Cajero,50
+E012,Carlos Vega,Cajero,50
+E013,Ricardo Medina,Cajero,50
+E014,Camila Cortés,Cajero,50
+E015,Daniela Vázquez,Cajero,50
+E016,Miguel Flores,Cajero,50
+E017,Luis Ortiz,Cajero,50
+E018,Javier Martínez,Cajero,50
+E019,Javier Cortés,Cajero,50
+E020,Diego Medina,Cajero,50
+E021,Carlos Contreras,Cajero,50
+E022,Lucía Ruiz,Cajero,50
+E023,Luis Padilla,Cajero,50
+E024,Camila León,Cajero,50
+E025,Andrés Luna,Cajero,50
+E026,Ricardo Torres,Cajero,50
+E027,José Romero,Cajero,50
+E028,Miguel López,Cajero,50
+E029,Daniela Sánchez,Cajero,50
+E030,Lucía Núñez,Cajero,50
+E031,Adriana Soto,Piso de venta,55
+E032,José Padilla,Piso de venta,55
+E033,Camila Morales,Piso de venta,55
+E034,Adriana Ruiz,Piso de venta,55
+E035,Luis Romero,Piso de venta,55
+E036,Ricardo Torres,Piso de venta,55
+E037,Miguel González,Piso de venta,55
+E038,Andrés Romero,Piso de venta,55
+E039,Valentina Flores,Piso de venta,55
+E040,Jorge Núñez,Piso de venta,55
+E041,Adriana Castillo,Piso de venta,55
+E042,Carlos Cortés,Piso de venta,55
+E043,Fernanda Salazar,Piso de venta,55
+E044,Luis Reyes,Piso de venta,55
+E045,Ricardo Cortés,Piso de venta,55
+E046,Camila Cruz,Piso de venta,55
+E047,Paola Álvarez,Piso de venta,55
+E048,Javier Díaz,Piso de venta,55
+E049,Sofía Núñez,Piso de venta,55
+E050,Fernanda González,Piso de venta,55
+E051,Paola Torres,Piso de venta,55
+E052,Paola García,Piso de venta,55
+E053,Ricardo Luna,Piso de venta,55
+E054,Ricardo Silva,Piso de venta,55
+E055,Miguel Salazar,Piso de venta,55
+E056,Diego Luna,Inventario,60
+E057,Jorge Romero,Inventario,60
+E058,Daniela Ramos,Inventario,60
+E059,Ana González,Inventario,60
+E060,Sofía Pérez,Inventario,60
+E061,Camila Núñez,Inventario,60
+E062,Andrés Romero,Inventario,60
+E063,Javier Ramos,Inventario,60
+E064,Luis Contreras,Inventario,60
+E065,Jorge Medina,Inventario,60
+E066,Jorge Ortiz,Inventario,60
+E067,Luis Ortiz,Inventario,60
+E068,Ricardo Reyes,Inventario,60
+E069,Fernanda Hernández,Inventario,60
+E070,Valentina Castillo,Inventario,60
+E071,Eduardo Flores,Supervisor,90
+E072,Diego Mendoza,Supervisor,90
+E073,Eduardo Peña,Supervisor,90
+E074,Ana Rivera,Supervisor,90
+E075,Paola López,Supervisor,90
+E076,Javier Díaz,Supervisor,90
+E077,Adriana Reyes,Supervisor,90
+E078,Camila Silva,Supervisor,90
+E079,María Ortiz,Supervisor,90
+E080,Daniela Luna,Supervisor,90
