@@ -37,22 +37,26 @@ def _staffing_per_shift(demand_df: pd.DataFrame) -> Dict[str, Dict[str, Tuple[in
     el manager planea por turno (no hora-por-hora), basado en históricos, con sesgo
     conservador para "no quedar corto".
 
+    Las horas operativas se infieren del propio demand_df (no son hardcoded),
+    para que la herramienta funcione con cualquier tienda independiente de su horario.
+
     Returns: dict[day] -> {"AM": (start_h, end_h, staff), "PM": (start_h, end_h, staff)}
     """
     shifts = {}
     for day in DAYS:
-        op_start, op_end = OPERATING_HOURS[day]
-        mid = (op_start + op_end) // 2  # punto medio del día
         day_demand = demand_df[demand_df["dia"] == day]
+        if day_demand.empty:
+            continue
+        op_start = int(day_demand["hora"].min())
+        op_end = int(day_demand["hora"].max()) + 1  # exclusive
+        mid = (op_start + op_end) // 2
 
-        # Turno matutino: op_start a mid
         am_demand = day_demand[(day_demand["hora"] >= op_start) & (day_demand["hora"] < mid)]
-        am_avg = am_demand["personas_requeridas"].mean()
+        am_avg = am_demand["personas_requeridas"].mean() if not am_demand.empty else 0
         am_staff = int(np.ceil(am_avg * (1 + BUFFER_PCT)))
 
-        # Turno vespertino: mid a op_end
         pm_demand = day_demand[(day_demand["hora"] >= mid) & (day_demand["hora"] < op_end)]
-        pm_avg = pm_demand["personas_requeridas"].mean()
+        pm_avg = pm_demand["personas_requeridas"].mean() if not pm_demand.empty else 0
         pm_staff = int(np.ceil(pm_avg * (1 + BUFFER_PCT)))
 
         shifts[day] = {
