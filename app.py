@@ -74,59 +74,57 @@ def validate_employees_csv(df: pd.DataFrame) -> tuple[bool, str]:
 # ==========================================================================
 
 def chart_demand_vs_staffing(result: dict) -> go.Figure:
-    """Curva de demanda vs staffing baseline vs optimizado por hora-día."""
+    """Demanda vs staffing — un panel por día (grid 2x4)."""
     bcov = result["baseline"]["coverage_df"]
     ocov = result["optimized"]["coverage_df"]
 
-    # Construir labels concatenando día + hora
-    rows = []
-    for day in DAYS:
+    fig = make_subplots(
+        rows=2, cols=4,
+        subplot_titles=DAYS,
+        shared_yaxes=True,
+        horizontal_spacing=0.04,
+        vertical_spacing=0.22,
+    )
+
+    for i, day in enumerate(DAYS):
+        row = 1 if i < 4 else 2
+        col = (i % 4) + 1
         bd = bcov[bcov["dia"] == day].sort_values("hora")
         od = ocov[ocov["dia"] == day].sort_values("hora")
-        for _, r in bd.iterrows():
-            rows.append({
-                "label": f"{day[:3]} {r['hora']}h",
-                "dia": day,
-                "hora": r["hora"],
-                "demanda": r["requerido"],
-                "baseline": r["asignado"],
-            })
-        for _, r in od.iterrows():
-            for row in rows:
-                if row["dia"] == day and row["hora"] == r["hora"]:
-                    row["optimizado"] = r["asignado"]
-                    break
-    df = pd.DataFrame(rows)
+        x_labels = [f"{h}h" for h in bd["hora"]]
 
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=df["label"], y=df["baseline"],
-        name="Baseline (Excel)",
-        marker_color="#F0997B",
-        opacity=0.85,
-    ))
-    fig.add_trace(go.Bar(
-        x=df["label"], y=df["optimizado"],
-        name="Optimizado (Aivena)",
-        marker_color="#5DCAA5",
-        opacity=0.85,
-    ))
-    fig.add_trace(go.Scatter(
-        x=df["label"], y=df["demanda"],
-        name="Demanda real",
-        mode="lines",
-        line=dict(color="#2C2C2A", width=2),
-    ))
+        fig.add_trace(go.Bar(
+            x=x_labels, y=bd["asignado"], name="Baseline (Excel)",
+            marker_color="#F0997B", opacity=0.85, showlegend=(i == 0),
+        ), row=row, col=col)
+        fig.add_trace(go.Bar(
+            x=x_labels, y=od["asignado"], name="Optimizado (Aivena)",
+            marker_color="#5DCAA5", opacity=0.9, showlegend=(i == 0),
+        ), row=row, col=col)
+        fig.add_trace(go.Scatter(
+            x=x_labels, y=bd["requerido"], name="Demanda real",
+            mode="lines+markers",
+            line=dict(color="#FAFAFA", width=2),
+            marker=dict(size=4, color="#FAFAFA"),
+            showlegend=(i == 0),
+        ), row=row, col=col)
 
     fig.update_layout(
-        title="Demanda vs staffing por hora — semana completa",
-        barmode="group",
-        height=400,
-        xaxis=dict(title="", tickangle=-60, tickfont=dict(size=9)),
-        yaxis=dict(title="Personas"),
-        legend=dict(orientation="h", y=1.05, x=0),
-        margin=dict(l=10, r=10, t=60, b=80),
-        plot_bgcolor="white",
+        height=480, barmode="group",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#E5E5E5", size=11),
+        legend=dict(
+            orientation="h", y=1.12, x=0.5, xanchor="center",
+            bgcolor="rgba(0,0,0,0)",
+        ),
+        margin=dict(l=10, r=10, t=70, b=10),
+    )
+    fig.update_xaxes(showgrid=False, tickfont=dict(size=9))
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="rgba(255,255,255,0.08)",
+        zerolinecolor="rgba(255,255,255,0.08)",
     )
     return fig
 
@@ -165,12 +163,12 @@ def chart_hours_distribution(result: dict) -> go.Figure:
         name=f"Optimizado (avg {oh.mean():.1f}h)",
         marker_color="#5DCAA5",
     ))
-    # Línea del tope legal entre 35-40h y 40-45h
     fig.add_vline(
-        x=3.5, line=dict(color="#A32D2D", width=1.5, dash="dash"),
+        x=3.5,
+        line=dict(color="#E24B4A", width=1.5, dash="dash"),
         annotation_text="Tope legal 2027",
-        annotation_position="top right",
-        annotation_font_color="#A32D2D",
+        annotation_position="top",
+        annotation_font_color="#E24B4A",
     )
     fig.update_layout(
         title="Distribución de horas semanales por empleado",
@@ -178,9 +176,20 @@ def chart_hours_distribution(result: dict) -> go.Figure:
         height=380,
         xaxis_title="Horas trabajadas/semana",
         yaxis_title="Empleados",
-        legend=dict(orientation="h", y=1.05, x=0),
-        margin=dict(l=10, r=10, t=60, b=40),
-        plot_bgcolor="white",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#E5E5E5", size=12),
+        legend=dict(
+            orientation="h", y=1.1, x=0,
+            bgcolor="rgba(0,0,0,0)",
+        ),
+        margin=dict(l=10, r=10, t=70, b=40),
+    )
+    fig.update_xaxes(showgrid=False)
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="rgba(255,255,255,0.08)",
+        zerolinecolor="rgba(255,255,255,0.08)",
     )
     return fig
 
@@ -193,11 +202,9 @@ def chart_schedule_heatmap(result: dict, max_employees: int = 30) -> go.Figure:
     pivot = sched.pivot_table(
         index="emp_id", columns=["dia", "hora"], values="working", fill_value=0
     )
-    # Reordenar columnas por día
     day_order = {d: i for i, d in enumerate(DAYS)}
     cols_sorted = sorted(pivot.columns, key=lambda c: (day_order.get(c[0], 99), c[1]))
     pivot = pivot[cols_sorted]
-    # Limitar a primeros N empleados para legibilidad
     pivot = pivot.iloc[:max_employees]
 
     col_labels = [f"{d[:3]} {h}h" for d, h in pivot.columns]
@@ -206,13 +213,16 @@ def chart_schedule_heatmap(result: dict, max_employees: int = 30) -> go.Figure:
         z=pivot.values,
         x=col_labels,
         y=pivot.index.tolist(),
-        colorscale=[[0, "#F1EFE8"], [1, "#0F6E56"]],
+        colorscale=[[0, "rgba(255,255,255,0.04)"], [1, "#5DCAA5"]],
         showscale=False,
         hovertemplate="Empleado: %{y}<br>Slot: %{x}<br>Trabajando: %{z}<extra></extra>",
     ))
     fig.update_layout(
         title=f"Schedule semanal optimizado (primeros {max_employees} empleados)",
         height=520,
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#E5E5E5", size=11),
         xaxis=dict(tickangle=-60, tickfont=dict(size=8)),
         yaxis=dict(autorange="reversed", tickfont=dict(size=10)),
         margin=dict(l=10, r=10, t=60, b=80),
