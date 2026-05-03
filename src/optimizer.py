@@ -43,6 +43,9 @@ def optimize_schedule(demand_df: pd.DataFrame, employees_df: pd.DataFrame) -> Di
     """
     Construye el schedule optimizado respetando todos los constraints.
 
+    Las horas operativas se infieren del propio demand_df (no son hardcoded),
+    para que la herramienta funcione con cualquier tienda independiente de su horario.
+
     Returns dict con:
         - schedule_df: filas (emp_id, dia, hora, working=1/0)
         - hours_summary: horas y costo por empleado
@@ -53,30 +56,41 @@ def optimize_schedule(demand_df: pd.DataFrame, employees_df: pd.DataFrame) -> Di
     emp_by_id = {e["id"]: e for e in employees}
     n_employees = len(employees)
 
+    # Inferir horas operativas por día desde el demand_df
+    op_hours_by_day = {}
+    for day in DAYS:
+        day_demand = demand_df[demand_df["dia"] == day]
+        if day_demand.empty:
+            continue
+        horas = sorted(day_demand["hora"].unique().tolist())
+        op_hours_by_day[day] = horas
+
     # Estado de tracking
-    schedule: Dict[Tuple[str, str, int], int] = {}  # (emp_id, dia, hora) -> 1
+    schedule: Dict[Tuple[str, str, int], int] = {}
     weekly_hours: Dict[str, float] = {e["id"]: 0.0 for e in employees}
-    daily_hours: Dict[Tuple[str, str], float] = {}  # (emp_id, dia) -> hours
+    daily_hours: Dict[Tuple[str, str], float] = {}
     days_worked: Dict[str, Set[str]] = {e["id"]: set() for e in employees}
-    shift_start: Dict[Tuple[str, str], int] = {}  # (emp_id, dia) -> hora inicio
-    shift_end: Dict[Tuple[str, str], int] = {}    # (emp_id, dia) -> hora fin (exclusive)
+    shift_start: Dict[Tuple[str, str], int] = {}
+    shift_end: Dict[Tuple[str, str], int] = {}
 
     coverage_rows = []
 
     # Iteramos sobre cada slot (día, hora) en orden cronológico
-    # (en lugar de por demanda descendente, para preservar continuidad de turnos)
     for day in DAYS:
-        for hora in operating_hours_for(day):
+        if day not in op_hours_by_day:
+            continue
+        horas_dia = op_hours_by_day[day]
+        op_end_dia = max(horas_dia) + 1  # cierre del día (exclusive)
+
+        for hora in horas_dia:
             # Demanda en este slot
             row = demand_df[(demand_df["dia"] == day) & (demand_df["hora"] == hora)].iloc[0]
             requerido = int(row["personas_requeridas"])
 
             # ¿Quiénes ya están continuando turno en este slot?
-            # (Empleados que trabajaron la hora anterior y aún no han llegado a su límite)
             continuando = []
             for emp_id in [e["id"] for e in employees]:
                 if (emp_id, day, hora - 1) in schedule:
-                    # Sigue elegible para continuar?
                     if (
                         weekly_hours[emp_id] < MAX_WEEKLY_HOURS
                         and daily_hours.get((emp_id, day), 0) < MAX_DAILY_HOURS
@@ -103,33 +117,27 @@ def optimize_schedule(demand_df: pd.DataFrame, employees_df: pd.DataFrame) -> Di
                     emp_id = e["id"]
                     if emp_id in asignados_este_slot:
                         continue
-                    # Constraints duros
                     if weekly_hours[emp_id] >= MAX_WEEKLY_HOURS:
                         continue
                     if daily_hours.get((emp_id, day), 0) >= MAX_DAILY_HOURS:
                         continue
-                    # Si ya cerró turno hoy (gap), no abre nuevo
                     if (emp_id, day) in shift_end and shift_end[(emp_id, day)] < hora:
                         continue
-                    # Restricción de día de descanso
                     if (
                         day not in days_worked[emp_id]
                         and len(days_worked[emp_id]) >= MAX_DAYS_WORKED
                     ):
                         continue
-                    # Si entra fresco, debe haber espacio para mínimo 4h o resto del día
-                    horas_restantes_dia = OPERATING_HOURS[day][1] - hora
+                    horas_restantes_dia = op_end_dia - hora
                     horas_disponibles = min(
                         horas_restantes_dia,
                         MAX_DAILY_HOURS - daily_hours.get((emp_id, day), 0),
                         MAX_WEEKLY_HOURS - weekly_hours[emp_id],
                     )
-                    # Si es nuevo turno, validar que pueda hacer mínimo 4h
                     if (emp_id, day) not in days_worked[emp_id] and horas_disponibles < min(MIN_SHIFT_HOURS, horas_restantes_dia):
                         continue
                     candidatos.append((emp_id, weekly_hours[emp_id], e["hourly_rate"]))
 
-                # Ordenar: menos horas acumuladas (distribuir carga), luego más barato
                 candidatos.sort(key=lambda c: (c[1], c[2]))
 
                 for emp_id, _, _ in candidatos[:faltantes]:
@@ -152,8 +160,6 @@ def optimize_schedule(demand_df: pd.DataFrame, employees_df: pd.DataFrame) -> Di
             })
 
     # Post-procesamiento: garantizar turnos continuos
-    # Si un empleado tiene gap dentro de un día (ej. 9-10 y 12-14), rellenamos el gap
-    # excepto si rompe el cap de 40h. Si no se puede rellenar, dividimos en dos turnos.
     schedule, weekly_hours, daily_hours = _enforce_shift_continuity(
         schedule, weekly_hours, daily_hours, days_worked, employees
     )
@@ -161,7 +167,9 @@ def optimize_schedule(demand_df: pd.DataFrame, employees_df: pd.DataFrame) -> Di
     # Reconstruir coverage tras post-process (puede haber añadido staff)
     coverage_rows_final = []
     for day in DAYS:
-        for hora in operating_hours_for(day):
+        if day not in op_hours_by_day:
+            continue
+        for hora in op_hours_by_day[day]:
             row = demand_df[(demand_df["dia"] == day) & (demand_df["hora"] == hora)].iloc[0]
             requerido = int(row["personas_requeridas"])
             asignado = sum(
