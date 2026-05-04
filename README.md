@@ -106,6 +106,3 @@ Sin API key, la app degrada a un brief boilerplate predefinido. La capa Q&A qued
 3. **Sin restricciones de empleado.** No modelamos disponibilidad individual (estudios, turno preferido, antigüedad). Producción acepta CSV con esos campos opcionales.
 4. **Single-store.** El motor optimiza una tienda a la vez. Cross-store re-allocation queda para v2.
 
-## Para la conversación de venta del lunes
-
-La gráfica de **distribución de horas semanales por empleado** (tab "Análisis visual") es la herramienta principal. Muestra en una sola imagen el problema legal post-2027 (68 de 80 empleados en infracción) y la solución (todos entre 25-35h, ninguno cruza el tope). Esa es la gráfica de la que sale la decisión de pilotear.
