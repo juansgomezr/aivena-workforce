@@ -89,7 +89,7 @@ Sin API key, la app degrada a un brief boilerplate predefinido. La capa Q&A qued
 
 **Ahorro: 14.9% (rango defendible 12-15% considerando buffer de variabilidad de tráfico).**
 
-## Decisiones técnicas — defendibles
+## Decisiones técnicas
 
 **Greedy vs solver MIP.** Elegimos algoritmo greedy en pure Python (sin OR-Tools) por dos razones: latencia <1s vs. 30-90s de un MIP, mejor para demo y para Streamlit Cloud bajo el límite de 100s de Cloudflare; cero dependencias externas, deploy más robusto. Trade-off: ~5-10pp menos óptimo que CP-SAT. Roadmap Q3 2026: migrar a CP-SAT si un design partner lo justifica.
 
